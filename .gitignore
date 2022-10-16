@@ -1,0 +1,27 @@
+# Mac OS
+*.DS_Store
+
+# Python Specific
+__pycache__/
+
+# Pyenv
+*.python-version
+
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Sublime
+*.sublime-workspace
+*.sublime-project
+
+# Project Specific
+config_test.json
+/*.py
+*.cmake
+data/
+terminal_commands.txt
+Pipfile
+Pipfile.lock
+.vscode/
