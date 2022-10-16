@@ -25,10 +25,13 @@ import urllib3
 import pandas as pd
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# TODO: ensure config, df are returned in request, create and get new
 
-# def test():
-#    print("test")
+class TimeoutFifteen(Exception):
+    pass
+
+
+class TimeoutDaily(Exception):
+    pass
 
 
 def check_last_timeout(config):
@@ -94,31 +97,28 @@ def strava_update(config, df):
 
     # Attempt to get headers and id
     try:
-        try:
-            headers = request_headers(config)
-            id_list, config = create_id_list(headers, config, df)
-        except Exception as e:
-            # An error occured in generating the prereq files, update cannot run
-            print("Update cannot be run")
-            raise e
-        # Attempt to update file
-        try:
-            if id_list != []:
-                print("Updating database")
-                config, df = get_new_activities(headers, config, df, id_list)
-                # config and df are updated by function regardless
-            else:
-                print("No new activities")
-        except RuntimeError as e:
-            # TODO: Fix error handling
-            print("df was not updated")
-            raise e
-    except Exception:
-        print("Update Failed")
-
+        headers = request_headers(config)
+        id_list, config = create_id_list(headers, config, df)
+    except TimeoutDaily:
+        config['last_timeout_daily'] = dt.datetime.utcnow().strftime('%Y_%m_%d_%H%M')
+        print("Activities cannot be fetched.")
+    except TimeoutFifteen:
+        config['last_timeout_15min'] = dt.datetime.utcnow().strftime('%Y_%m_%d_%H%M')
+        print("Activities cannot be fetched.")
+    except requests.exceptions.HTTPError:
+        # An error occured in generating the prereq files, update cannot run
+        print("Activity List cannot be fetched.")
     else:
-        print("Update was successful")
+        # no errors, let's try to update
+        if id_list != []:
+            print("Updating database")
+            config, df = get_new_activities(headers, config, df, id_list)
+            print("Update was successful")
+            # config and df are updated by function regardless
+        else:
+            print("No new activities")
     finally:
+        # always return config and df
         return config, df
 
 
@@ -160,11 +160,11 @@ def request_headers(config):
 
     try:
         response.raise_for_status()
-    except requests.exceptions.HTTPError as e:
+    except requests.exceptions.HTTPError:
         # Whoops it wasn't a 200
         # raise error into strava update
         print("Error in request_headers occured")
-        raise e
+        raise
     else:
         # if there is no error
         access_token = response.json()['access_token']
@@ -209,17 +209,16 @@ def create_id_list(headers, config, df):
     while json_obj != []:
         try:
             params = {'per_page': 200, 'page': page}
-            json_obj, config = return_json(url, headers, params, config)
-            # TEST: print("params is {}".format(params))
-        except Exception:
-            print("Error in create_id_list occured")
-            # TODO: check if this makes sense raise e
-            # raise error into strava update
-            break
+            json_obj = return_json(url, headers, params)
+        except TimeoutDaily:
+            print("Error in create_id_list occured.")
+            raise
+        except TimeoutFifteen:
+            print("Error in create_id_list occured.")
+            raise
         else:
             # if there is no error
             json_obj_ls.extend(json_obj)
-        finally:
             print("page number: {}".format(page))
             # TEST: safety stop
             if page > 9:
@@ -294,15 +293,16 @@ def get_new_activities(headers, config, df, id_list):
     params = None
     json_obj_ls = []
 
-    # TEST
-    # urls = urls[0:1]
-
     for url in urls:
         try:
-            json_obj, config = return_json(url, headers, params, config)
-        except Exception:
-            # if there is an error
-            print("There is a an error in the request")
+            json_obj = return_json(url, headers, params)
+        except TimeoutDaily:
+            print("Timeout in get_new_activities occured(TimeoutDaily)")
+            config['last_timeout_daily'] = dt.datetime.utcnow().strftime('%Y_%m_%d_%H%M')
+            break
+        except TimeoutFifteen:
+            print("Timeout in get_new_activities occured(Timeout15)")
+            config['last_timeout_15min'] = dt.datetime.utcnow().strftime('%Y_%m_%d_%H%M')
             break
         else:
             # if there is no error
@@ -344,7 +344,7 @@ def get_new_activities(headers, config, df, id_list):
     return config, df
 
 
-def return_json(url, headers, params, config):
+def return_json(url, headers, params):
     """
     creates a request and returns json and config
 
@@ -376,7 +376,6 @@ def return_json(url, headers, params, config):
     except requests.exceptions.HTTPError as e:
         # Whoops it wasn't a 200
         print("HTTPError")
-        utc_timeout = dt.datetime.utcnow().strftime('%Y_%m_%d_%H%M')
         limit_15min = int(response.headers['X-RateLimit-Limit'].split(",")[0])
         limit_daily = int(response.headers['X-RateLimit-Limit'].split(",")[1])
         usage_15min = int(response.headers['X-RateLimit-Usage'].split(",")[0])
@@ -385,20 +384,11 @@ def return_json(url, headers, params, config):
         # Check error and modify config last_timeout
         if usage_daily >= limit_daily:
             print("Daily Limit Hit")
-            config['last_timeout_daily'] = utc_timeout
-        else:
-            pass
+            raise TimeoutDaily
         if usage_15min >= limit_15min:
             print("15 Minute Limit Hit")
-            config['last_timeout_15min'] = utc_timeout
-        # Create empty JSON Object
-        json_obj = None
-        raise e
-    except BaseException as e:
-        print("Unknown error")
-        raise e
+            raise TimeoutFifteen
     else:
         # if there is no error
         json_obj = response.json()
-    finally:
-        return json_obj, config
+        return json_obj
