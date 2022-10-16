@@ -12,12 +12,9 @@ Created: 2022/07/04
 # TODO: Build test for update.py
 # TODO: Build Test for stravatracker.py
 # TODO: Build integration test for stravatracker and update.py
-
-# TODO: Decorator for Path
 # TODO: Fix location of print statements
 # TODO: Error handling
 # TODO: Definitions for functions and modules
-# TODO: Update images
 
 # Import files
 import os
