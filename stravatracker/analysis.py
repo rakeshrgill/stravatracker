@@ -24,12 +24,10 @@ import numpy as np
 import datetime as dt
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-# TODO: csv files follow oteher program
 
 
 def excel_clean(df):
     """ Returns excel_df
-    TODO
     Parameters
     ----------
     config: dictionary
@@ -92,7 +90,6 @@ def excel_clean(df):
 
 def pandas_df_converter(excel_df):
     df = excel_df.copy()
-    # TODO fill in things
     df['start_date_local'] = pd.to_datetime(df['start_date_local'])
     df = df.sort_values(by='start_date_local')
     df.reset_index(inplace=True)
@@ -106,6 +103,7 @@ def graph_plots(pandas_df):
     filter_df = pandas_df.copy()
     start_year = min(filter_df['start_date_local']).year
     end_year = max(filter_df['start_date_local']).year
+    year_array = list(range(start_year, end_year + 1, 1))
     graph_df = filter_df.copy()
     new_date_range = pd.date_range(start=(str(start_year) + "-01" + "-01"), end=(str(end_year) + "-12" + "-31"), freq="D")
     graph_df.set_index(["start_date_local"], inplace=True)
@@ -146,10 +144,8 @@ def graph_plots(pandas_df):
     plt.show()
 
     # Graph 4:  Duration mean of the week,BY YEAR
-    # plt.figure()
     ax = everyday_series.groupby([pd.Grouper(level=0, freq="Y"), everyday_series.index.day_of_week]).mean().unstack().plot.bar(legend=False, use_index=True)
-    # TODO: fix
-    ax.set_xticklabels(['2019', '2020', '2021', '2022'])
+    ax.set_xticklabels(year_array)
     ax.set_title("Average duration by day of the week, by year")
     ax.set_ylabel("Hours")
     plt.show()
@@ -165,10 +161,8 @@ def graph_plots(pandas_df):
     plt.show()
 
     # Graph 6:  Days of ex of the week, by year
-    # plt.figure()
     ax = numdays_series.groupby([pd.Grouper(level=0, freq="Y"), everyday_series.index.day_of_week]).sum().unstack().plot.bar(legend=False, use_index=True)
-    # TODO: fix
-    ax.set_xticklabels(['2019', '2020', '2021', '2022'])
+    ax.set_xticklabels(year_array)
     ax.set_title("Days exercised by day of the week, by year")
     ax.set_ylabel("Hours")
     plt.show()
