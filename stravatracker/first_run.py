@@ -84,7 +84,7 @@ def setup():
         webbrowser.open("https://www.strava.com/settings/api", new=1)
         im1a.show()
         im1b.show()
-        answer = input("What would you like to do?\n1. Next Step\n2. Repeat\n3. Exit")
+        answer = input("What would you like to do?\n1. Next Step\n2. Repeat\n3. Exit\n")
         if answer == '1':
             ask_question = False
         elif answer == '2':
@@ -102,7 +102,7 @@ def setup():
         im2.show()
         client_id_question = True
         while client_id_question:
-            client_id = input("Please key in the client id shown on the site")
+            client_id = input("Please key in the client id shown on the site\n")
             # Check for empty
             if client_id == '':
                 print("Empty client id")
@@ -122,7 +122,7 @@ def setup():
 
         client_secret_question = True
         while client_secret_question:
-            client_secret = input("Please key in the client secret shown on the site")
+            client_secret = input("Please key in the client secret shown on the site\n")
             # Check for empty
             if client_secret == '':
                 print("Empty client id")
@@ -134,7 +134,7 @@ def setup():
         config['client_secret'] = str(client_secret)
         print("Client id and client secret saved.")
 
-        answer = input("What would you like to do?\n1. Next Step\n2. Repeat\n3. Exit")
+        answer = input("What would you like to do?\n1. Next Step\n2. Repeat\n3. Exit\n")
         if answer == '1':
             ask_question = False
         elif answer == '2':
@@ -152,7 +152,7 @@ def setup():
         webbrowser.open(url, new=1)
         code_question = True
         while code_question:
-            code = input("Please key in the code in the redirect url")
+            code = input("Please key in the code in the redirect url\n")
             # Check for empty
             if code == '':
                 print("Empty client id")
@@ -162,7 +162,7 @@ def setup():
                 pass
         print("Code saved.")
 
-        answer = input("What would you like to do?\n1. Next Step\n2. Repeat\n3. Exit")
+        answer = input("What would you like to do?\n1. Next Step\n2. Repeat\n3. Exit\n")
         if answer == '1':
             ask_question = False
         elif answer == '2':
@@ -203,7 +203,7 @@ def setup():
             print("Refresh Token = {}\n".format(refresh_token))
             config['refresh_token'] = refresh_token
 
-        answer = input("What would you like to do?\n1. Next Step and Exit \n2. Repeat")
+        answer = input("What would you like to do?\n1. Next Step and Exit \n2. Repeat\n")
         if answer == '1':
             ask_question = False
         elif answer == '2':
