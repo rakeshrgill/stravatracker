@@ -9,12 +9,12 @@ Contains the following functions
 Author: rakeshrgill rakeshrgill@gmail.com
 Created: 2022/07/04
 """
+# TODO: Definitions for functions and modules
+# TODO: Fix location of print statements
+# TODO: Error handling
 # TODO: Build test for update.py
 # TODO: Build Test for stravatracker.py
 # TODO: Build integration test for stravatracker and update.py
-# TODO: Fix location of print statements
-# TODO: Error handling
-# TODO: Definitions for functions and modules
 
 # Import files
 import os
@@ -215,38 +215,31 @@ def main_menu(df, config):
 
         # Check for remaining updates
         if config['remaining_updates'] is True:
-            print("You still have activites to update from the previous, please choose option 2 when prompted.")
+            print("You still have activites to update from the previous, please choose option 1 when prompted.")
         else:
             pass
+
+        answer = input("What would you like to do?\n1. Update Database\n2. Database Analysis\n3. Exit\n")
 
         # Check if the API has timed out
         can_update = check_last_timeout(config)
         if can_update:
             pass
         else:
-            print("Please wait before updating again; option 1 and 2 are disabled")
+            print("Please wait before updating again; option 1 is disabled")
 
-        answer = input("What would you like to do?\n1. Update Database, export to Excel and shutdown\n2. Update Database\n3. Database Analysis\n4. Exit\n")
         if answer == '1':
-            if can_update:
-                print("please wait before updating again; option 1 and 2 are disabled")
-                update_write(config, df)
-                ask_question = False
-                return False
-            else:
-                print("Option disabled")
-        elif answer == '2':
             if can_update:
                 update_write(config, df)
                 ask_question = False
                 return True
             else:
                 print("Option disabled")
-        elif answer == '3':
+        elif answer == '2':
             analysis(config, df)
             ask_question = False
             return True
-        elif answer == '4':
+        elif answer == '3':
             print("Exit")
             ask_question = False
             return False
@@ -284,7 +277,7 @@ def program():
             # First Run Trigger
             ask_question = True
             while ask_question:
-                answer = input("Would you like to setup the program \n1. Yes\n2. No")
+                answer = input("Would you like to setup the program \n1. Yes\n2. No\n")
                 if answer == '1':
                     ask_question = False
                     try:
