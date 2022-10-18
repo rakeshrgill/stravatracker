@@ -1,55 +1,41 @@
-""" Defines functions to update the strava database file
+""" Defines functions for running analysis
 Contains the following functions:
-    check_last_timeout()
-    strava_update()
-        request_headers()
-        create_id_list()
-            return_json()
-        get_new_activities()
-            return_json()
-dependencies:
-    datimetime as dt
-    pandas as pd
-    json
-    requests
-    urllib3
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-Author: rakeshrgill rakeshrgill@gmail.com
-Created: 2022/10/16
+    excel_clean()
+    pandas_df_converter()
+    return_table_ls()
+        create_table()
+            return_data_frame_all()
+    graph_plots()
 """
+import datetime as dt
 
 import pandas as pd
 import numpy as np
-import datetime as dt
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+__author__ = "rakeshrgill"
+__email__ = "rakeshrgill@gmail.com"
+
 
 def excel_clean(df):
-    """ Returns excel_df
+    """Cleans data and converts it into an excel format
+
     Parameters
     ----------
-    config: dictionary
-    config['last_timeout_daily']
-    config['last_timeout_15min']
+    df : pandas.DataFrame
+        contains activities downloaded from strava, with segments dropped (see get_new_activities())
 
     Returns
     -------
-    bool
-    true if can update, false if timeout
-
-    Raises
-    ------
-
+    pandas.Dataframe
+        excel_df (Key columns in excel format)
     """
     strava_df = df
-
     # Break date into start time and date
     strava_df['start_date_local'] = pd.to_datetime(strava_df['start_date_local'])
     strava_df['start_time'] = strava_df['start_date_local'].dt.time
     strava_df['start_date_local'] = strava_df['start_date_local'].dt.date
-
     # Rename Activity Types
     strava_df['type'] = strava_df['type'].replace({'VirtualRide': 'Bike', 'Ride': 'Bike', 'WeightTraining': 'Strength', 'Workout': 'Strength'})
     strava_df['moving_time'] = strava_df['moving_time'] / 86400
@@ -57,22 +43,19 @@ def excel_clean(df):
     strava_df['distance'] = strava_df['distance'] / 1000
     strava_df['average_pace_run'] = (1 / strava_df['average_speed']) * (1000 / 86400)
     strava_df['average_pace_swim'] = ((1 / strava_df['average_speed']) * (1000 / 86400)) / 10
-
     # Swim
     strava_df['excel_time'] = strava_df['moving_time']
     strava_df.loc[strava_df['type'] == 'Swim', "excel_time"] = strava_df['elapsed_time']
-
-    # Core Sport Level
+    # Core Sports
     strava_df.loc[(strava_df['type'] != 'Run') & (strava_df['type'] != 'Hike'), "average_pace_run"] = np.NaN
     strava_df.loc[strava_df['type'] != 'Swim', "average_pace_swim"] = np.NaN
     strava_df.loc[strava_df['type'] != 'Bike', "average_watts"] = np.NaN
     strava_df.loc[strava_df['type'] == 'Swim', "average_heartrate"] = np.NaN
-
     # Non distance sports
     strava_df.loc[strava_df['type'] == 'Strength', "distance"] = np.NaN
     strava_df.loc[strava_df['type'] == 'Yoga', "distance"] = np.NaN
     strava_df.loc[strava_df['type'] == 'RockClimbing', "distance"] = np.NaN
-
+    # Extract Columns
     key_cols = ['start_date_local',
                 'type',
                 'excel_time',
@@ -83,12 +66,23 @@ def excel_clean(df):
                 'calories',
                 'average_heartrate'
                 ]
-
     excel_df = strava_df[key_cols]
     return excel_df
 
 
 def pandas_df_converter(excel_df):
+    """Converts excel_df into pandas format
+
+    Parameters
+    ----------
+    excel_df : pandas.Dataframe
+        see excel_clean
+
+    Returns
+    -------
+    pandas.Dataframe
+        formatted and cleaned
+    """
     df = excel_df.copy()
     df['start_date_local'] = pd.to_datetime(df['start_date_local'])
     df = df.sort_values(by='start_date_local')
@@ -98,7 +92,85 @@ def pandas_df_converter(excel_df):
     return df
 
 
+def return_table_ls(df, freq_ls):
+    """Returns a list of tables to be saves to csv
+
+    Parameters
+    ----------
+    df : pandas.Dataframe
+        see pandas_df_converter
+    freq_ls : list
+        of Frequencies in the format of strings
+
+    Returns
+    -------
+    list
+        list of dataframes
+    """
+    day_of_year = int(dt.datetime.today().strftime("%j"))
+    table_ls = []
+    for item in freq_ls:
+        freq_str = item
+        if freq_str == "Y":
+            table_ls.append(create_table(df, freq_str))
+            # Filter to compare progress to the current date
+            df = df[df['start_date_local'].dt.dayofyear <= day_of_year]
+            table_ls.append(create_table(df, freq_str))
+        else:
+            table_ls.append(create_table(df, freq_str))
+    return table_ls
+
+
+def create_table(df, freq_str):
+    """Returns analyis of pandas_df based on frequency
+
+    Parameters
+    ----------
+    df : pandas.Dataframe
+        see pandas_df_converter
+    freq_str : str
+        "Y","M"
+
+    Returns
+    -------
+    pandas.Dataframe
+        for comparison
+    """
+    duration_by_type = df.groupby([pd.Grouper(key='start_date_local', freq=freq_str), 'type'])['excel_time'].sum()
+    duration_by_type.name = "duration"
+    num_of_ex_by_type = df.groupby([pd.Grouper(key='start_date_local', freq=freq_str), 'type'])['excel_time'].count()
+    num_of_ex_by_type.name = "number_of_ex"
+    days_of_ex_by_type = df.groupby([pd.Grouper(key='start_date_local', freq=freq_str), 'type'])['start_date_local'].nunique()
+    days_of_ex_by_type.name = "days_of_ex"
+    # columns for all act
+    duration_all = df.groupby([pd.Grouper(key='start_date_local', freq=freq_str)])['excel_time'].sum()
+    duration_all.name = "duration"
+    num_of_ex_all = df.groupby([pd.Grouper(key='start_date_local', freq=freq_str)])['excel_time'].count()
+    num_of_ex_all.name = "number_of_ex"
+    days_of_ex_all = df.groupby([pd.Grouper(key='start_date_local', freq=freq_str)])['start_date_local'].nunique()
+    days_of_ex_all.name = "days_of_ex"
+    # create data frame
+    type_df = pd.concat([duration_by_type, num_of_ex_by_type, days_of_ex_by_type], axis=1, join="outer", ignore_index=False)
+    all_df = pd.concat([return_data_frame_all(duration_all), return_data_frame_all(num_of_ex_all), return_data_frame_all(days_of_ex_all)], axis=1, join="outer", ignore_index=False)
+    table_df = pd.concat([type_df, all_df], join='outer').sort_index()
+    return table_df
+
+
+def return_data_frame_all(series):
+    """A new dataframe with information for all types of activities"""
+    df = series.to_frame()
+    df['type'] = 'All'
+    return df.reset_index().set_index(['start_date_local', 'type'])
+
+
 def graph_plots(pandas_df):
+    """Plots 6 graphs for comparions
+
+    Parameters
+    ----------
+    pandas_df : pandas.Dataframe
+        see pandas_df_converter()
+    """
     fmt = mdates.DateFormatter('%b')
     filter_df = pandas_df.copy()
     start_year = min(filter_df['start_date_local']).year
@@ -166,44 +238,3 @@ def graph_plots(pandas_df):
     ax.set_title("Days exercised by day of the week, by year")
     ax.set_ylabel("Hours")
     plt.show()
-
-
-def return_table_ls(df, freq_ls):
-    day_of_year = int(dt.datetime.today().strftime("%j"))
-    table_ls = []
-    for item in freq_ls:
-        freq_str = item
-        if freq_str == "Y":
-            table_ls.append(create_table(df, freq_str))
-            df = df[df['start_date_local'].dt.dayofyear <= day_of_year]
-            table_ls.append(create_table(df, freq_str))
-        else:
-            table_ls.append(create_table(df, freq_str))
-    return table_ls
-
-
-def create_table(df, freq_str):
-    duration_by_type = df.groupby([pd.Grouper(key='start_date_local', freq=freq_str), 'type'])['excel_time'].sum()
-    duration_by_type.name = "duration"
-    num_of_ex_by_type = df.groupby([pd.Grouper(key='start_date_local', freq=freq_str), 'type'])['excel_time'].count()
-    num_of_ex_by_type.name = "number_of_ex"
-    days_of_ex_by_type = df.groupby([pd.Grouper(key='start_date_local', freq=freq_str), 'type'])['start_date_local'].nunique()
-    days_of_ex_by_type.name = "days_of_ex"
-    # columns for all act
-    duration_all = df.groupby([pd.Grouper(key='start_date_local', freq=freq_str)])['excel_time'].sum()
-    duration_all.name = "duration"
-    num_of_ex_all = df.groupby([pd.Grouper(key='start_date_local', freq=freq_str)])['excel_time'].count()
-    num_of_ex_all.name = "number_of_ex"
-    days_of_ex_all = df.groupby([pd.Grouper(key='start_date_local', freq=freq_str)])['start_date_local'].nunique()
-    days_of_ex_all.name = "days_of_ex"
-    # create data frame
-    type_df = pd.concat([duration_by_type, num_of_ex_by_type, days_of_ex_by_type], axis=1, join="outer", ignore_index=False)
-    all_df = pd.concat([return_data_frame_all(duration_all), return_data_frame_all(num_of_ex_all), return_data_frame_all(days_of_ex_all)], axis=1, join="outer", ignore_index=False)
-    table_df = pd.concat([type_df, all_df], join='outer').sort_index()
-    return table_df
-
-
-def return_data_frame_all(series):
-    df = series.to_frame()
-    df['type'] = 'All'
-    return df.reset_index().set_index(['start_date_local', 'type'])

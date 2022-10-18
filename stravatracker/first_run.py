@@ -1,66 +1,36 @@
-
-# 0) Navigate to:https://www.strava.com/settings/api. Log in an obtain client id
-# 0.5 obtain code
-# 1) Get authorization code from authorization page. This is a one time, manual step.
-# Paste the below code in a browser, hit enter then grab the "code" part from the resulting url.
-# https://www.strava.com/oauth/authorize?client_id=your_client_id&redirect_uri=http://localhost&response_type=code&scope=activity:read_all
-# 2) Exchange authorization code for access token & refresh token
-# https://www.strava.com/oauth/token?client_id=your_client_id&client_secret=your_client_secret&code=your_code_from_previous_step&grant_type=authorization_code
-# 3) View your activities using the access token just received
-# https://www.strava.com/api/v3/athlete/activities?access_token=access_token_from_previous_step
-# 4) Use refresh token to get new access tokens
-# https://www.strava.com/oauth/token?client_id=your_client_id&client_secret=your_client_secret&refresh_token=your_refresh_token_from_previous_step&grant_type=refresh_token
-
-""" Defines functions to update the strava database file
+""" Defines functions for initial setup
 Contains the following functions:
-    check_last_timeout()
-    strava_update()
-        request_headers()
-        create_id_list()
-            return_json()
-        get_new_activities()
-            return_json()
-dependencies:
-    datimetime as dt
-    pandas as pd
-    json
-    requests
-    urllib3
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    setup()
 
-Author: rakeshrgill rakeshrgill@gmail.com
-Created: 2022/10/15
 """
-
-import requests
 import urllib3
 import webbrowser
+
+import requests
 from PIL import Image
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+__author__ = "rakeshrgill"
+__email__ = "rakeshrgill@gmail.com"
 
 
 def setup():
-    """ Checks if sufficient time has passed since the last timeout and returns a boolean. Prints error message when there is a need to wait
-    # Step 1 run the init setup, returns config, df, empty modifier list
-    Parameters
-    ----------
-    config: dictionary
-        config['last_timeout_daily']
-        config['last_timeout_15min']
+    """Runs steps 0 to 4
 
     Returns
     -------
-    bool
-        true if can update, false if timeout
+    dict
+        config file
 
     Raises
     ------
+    SystemExit
+        If the setup was terminated by user
 
     """
-
     # Step 0
     # Create config file
-
     print("Running initial database setup.")
     config = {
         'first_run': True,
@@ -72,7 +42,6 @@ def setup():
         'client_secret': '',
         'refresh_token': ''
     }
-
     # Read the image
     im1a = Image.open("setup/step1a.png")
     im1b = Image.open("setup/step1b.png")
@@ -91,7 +60,7 @@ def setup():
             ask_question = True
         elif answer == '3':
             ask_question = False
-            raise Exception
+            raise SystemExit(0)
         else:
             print("Invalid Answer")
     # Step 2 Get Client ID and Client Secret from Webbrowser
@@ -133,7 +102,6 @@ def setup():
         config['client_id'] = str(client_id)
         config['client_secret'] = str(client_secret)
         print("Client id and client secret saved.")
-
         answer = input("What would you like to do?\n1. Next Step\n2. Repeat\n3. Exit\n")
         if answer == '1':
             ask_question = False
@@ -141,7 +109,7 @@ def setup():
             ask_question = True
         elif answer == '3':
             ask_question = False
-            raise Exception
+            raise SystemExit(0)
         else:
             print("Invalid Answer")
     # Step 3 Obtain code from Webbrowser
@@ -161,7 +129,6 @@ def setup():
                 code_question = (False)
                 pass
         print("Code saved.")
-
         answer = input("What would you like to do?\n1. Next Step\n2. Repeat\n3. Exit\n")
         if answer == '1':
             ask_question = False
@@ -169,10 +136,9 @@ def setup():
             ask_question = True
         elif answer == '3':
             ask_question = False
-            raise Exception
+            raise SystemExit(0)
         else:
             print("Invalid Answer")
-
     # Step 4 Obtain Client Refresh Code
     ask_question = True
     while ask_question:
@@ -184,25 +150,22 @@ def setup():
             'grant_type': 'authorization_code',
             'f': 'json'
         }
-
         url = 'https://www.strava.com/oauth/token'
         # Obtain Token for API
         print("Requesting Refresh Token...\n")
         response = requests.post(url, data=payload, verify=False)
-
         try:
             response.raise_for_status()
-        except requests.exceptions.HTTPError as e:
+        except requests.exceptions.HTTPError:
             # Whoops it wasn't a 200
             # raise error into strava update
             print("Error in request_headers occured")
-            raise e
+            raise
         else:
             # if there is no error
             refresh_token = response.json()['refresh_token']
             print("Refresh Token = {}\n".format(refresh_token))
             config['refresh_token'] = refresh_token
-
         answer = input("What would you like to do?\n1. Next Step and Exit \n2. Repeat\n")
         if answer == '1':
             ask_question = False
@@ -210,5 +173,4 @@ def setup():
             ask_question = True
         else:
             print("Invalid Answer")
-
     return config

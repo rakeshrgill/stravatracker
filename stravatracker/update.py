@@ -1,4 +1,8 @@
 """ Defines functions to update the strava database file
+Contains the following classes:
+TimeoutFifteen(Exception)
+TimeoutDaily(Exception)
+
 Contains the following functions:
     check_last_timeout()
     strava_update()
@@ -7,30 +11,26 @@ Contains the following functions:
             return_json()
         get_new_activities()
             return_json()
-dependencies:
-    datimetime as dt
-    pandas as pd
-    json
-    requests
-    urllib3
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-Author: rakeshrgill rakeshrgill@gmail.com
-Created: 2022/07/10
 """
-
 import datetime as dt
-import requests
 import urllib3
+
+import requests
 import pandas as pd
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+__author__ = "rakeshrgill"
+__email__ = "rakeshrgill@gmail.com"
 
 
 class TimeoutFifteen(Exception):
+    """Used to indicate a 15 minute timeout has occured"""
     pass
 
 
 class TimeoutDaily(Exception):
+    """Used to indicate a daily timeout has occured"""
     pass
 
 
@@ -39,20 +39,16 @@ def check_last_timeout(config):
 
     Parameters
     ----------
-    config: dictionary
+    config : dict
+        config variables (see read_json())
         config['last_timeout_daily']
         config['last_timeout_15min']
 
     Returns
     -------
     bool
-        true if can update, false if timeout
-
-    Raises
-    ------
-
+        True if can update
     """
-
     utc_time = dt.datetime.utcnow()
     timeout_daily = dt.datetime.strptime(config['last_timeout_daily'], '%Y_%m_%d_%H%M')
     timeout_15min = dt.datetime.strptime(config['last_timeout_15min'], '%Y_%m_%d_%H%M')
@@ -72,48 +68,41 @@ def check_last_timeout(config):
 
 
 def strava_update(config, df):
-    """
+    """Calls request_headers(), create_id_list() and get_new_activities()
+    Handles errors and timeouts. Updates:
+        config['last_timeout_daily']
+        config['last_timeout_15min'
     Preconditions: sufficient time has passed since last timeout, config file contains necessary info
-    Updates config and df file
-    Write df file to disk
+
     Parameters
     ----------
-    config: dictionary
-        dictionary containing the config variables (see read_config)
-    df: pandas dataframe
-        contains activities downloaded from strava, with segments dropped
+    config : dict
+        config variables (see read_json())
+    df : pandas.DataFrame
+        contains activities downloaded from strava, with segments dropped (see get_new_activities())
 
     Returns
     -------
-    config: dictionary
-        dictionary containing the config variables (see read_config)
-    df: pandas dataframe
-        contains activities downloaded from strava, with segments dropped
-
-    Raises
-    ------
-
+    config, df
+        dict, pandas.Dataframe
     """
-
     # Attempt to get headers and id
     try:
         headers = request_headers(config)
         id_list, config = create_id_list(headers, config, df)
     except TimeoutDaily:
         config['last_timeout_daily'] = dt.datetime.utcnow().strftime('%Y_%m_%d_%H%M')
-        print("Activities cannot be fetched.")
+        print("Activity List cannot be fetched.")
     except TimeoutFifteen:
         config['last_timeout_15min'] = dt.datetime.utcnow().strftime('%Y_%m_%d_%H%M')
-        print("Activities cannot be fetched.")
+        print("Activity List cannot be fetched.")
     except requests.exceptions.HTTPError:
         # An error occured in generating the prereq files, update cannot run
-        print("Activity List cannot be fetched.")
+        print("Headers cannot be fetched.")
     else:
         # no errors, let's try to update
         if id_list != []:
-            print("Updating database")
             config, df = get_new_activities(headers, config, df, id_list)
-            print("Update was successful")
             # config and df are updated by function regardless
         else:
             print("No new activities")
@@ -123,26 +112,21 @@ def strava_update(config, df):
 
 
 def request_headers(config):
-    """
-    Requests and formats header for future API requests
+    """Requests and formats header for future API requests
+
     Parameters
     ---------
-    config: dictionary
+    config: dict
         config['client_id']
         config['client_secret']
         config['refresh_token']
 
     Returns
     ---------
-    headers: dictionary
-        request headers
-
-    Raises
-    ------
-    requests.exceptions.HTTPError
-
+    dict
+        headers to be used to get data
     """
-
+    # Initialise Variables
     payload = {
         'client_id': config['client_id'],
         'client_secret': config['client_secret'],
@@ -150,23 +134,17 @@ def request_headers(config):
         'grant_type': 'refresh_token',
         'f': 'json'
     }
-
-    # Initialise Variables
     url = 'https://www.strava.com/oauth/token'
-
     # Obtain Token for API
     print("Requesting Token...\n")
     response = requests.post(url, data=payload, verify=False)
-
     try:
         response.raise_for_status()
     except requests.exceptions.HTTPError:
         # Whoops it wasn't a 200
-        # raise error into strava update
         print("Error in request_headers occured")
         raise
     else:
-        # if there is no error
         access_token = response.json()['access_token']
         print("Access Token = {}\n".format(access_token))
         headers = {'Authorization': 'Bearer ' + access_token}
@@ -174,32 +152,22 @@ def request_headers(config):
 
 
 def create_id_list(headers, config, df):
-    """
-    creates list of ids to update
+    """Fetches list of ids to update
 
     Parameters
-    ---------
-    headers: dictionary
-        request header
-    config: dictionary
-        dictionary containing the config variables (see read_config)
-    df: pandas dataframe
-        contains activities downloaded from strava, with segments dropped
+    ----------
+    headers : dict
+        see request_headers()
+    config : dict
+        config variables (see read_json())
+    df : pandas.DataFrame
+        contains activities downloaded from strava, with segments dropped (see get_new_activities())
 
     Returns
-    ---------
-    id_list: list
-        contains list of ids to update
-    config: dictionary
-        through return_json()
-            config['last_timeout_daily']
-            config['last_timeout_15min']
-
-    Raises
-    ------
-    requests.exceptions.HTTPError
+    -------
+    list, dict
+        id_list, config
     """
-
     # Extract all activities from atheletes profile
     print("Requesting id list from Strava")
     url = 'https://www.strava.com/api/v3/athlete/activities'
@@ -217,17 +185,8 @@ def create_id_list(headers, config, df):
             print("Error in create_id_list occured.")
             raise
         else:
-            # if there is no error
             json_obj_ls.extend(json_obj)
             print("page number: {}".format(page))
-            # TEST: safety stop
-            if page > 9:
-                print(params)
-                print(json_obj)
-            if page > 10:
-                print(params)
-                json_obj = []
-            # END TEST
             page += 1
     print("total pages: {}".format(page))
     # Convert the list of json into a pandas dataframe
@@ -245,46 +204,37 @@ def create_id_list(headers, config, df):
             print(extra_id_list)
         else:
             print("All activities on local exist on strava")
-
     else:
         id_list = df_allactivities .index.to_list()
     return id_list, config
 
 
 def get_new_activities(headers, config, df, id_list):
-    """
+    """Pulls data from strava based on id_list, updates df and config.
+    Config and df must always be updated by the function.
     Preconditions: Takes in non empty id_list
-    Updates config and df file
-    Write df file to disk
+
     Parameters
     ----------
-    headers: dictionary
-        request headers
-    config: dictionary
-        dictionary containing the config variables (see read_config)
-    df: pandas dataframe
-        contains activities downloaded from strava, with segments dropped
-    id_list: list
-        contains list of ids to update
+    headers : dict
+        see request_headers()
+    config : _type_
+        config variables (see read_json())
+    df : pandas.DataFrame
+        Per format in function
+    id_list : list
+        see create_id_list()
 
     Returns
     -------
-    config: dictionary
+    dict, df
+        config['remaining_updates']
         config['first_run']
         config['last_update']
-        config['remaining_updates']
-        through return_json()
-            config['last_timeout_daily']
-            config['last_timeout_15min']
-
-    df: pandas dataframe
-        contains activities downloaded from strava, with segments dropped
-
-    Raises
-    ------
+        config['last_timeout_15min']
+        config['last_timeout_daily']
 
     """
-
     activity_url = 'https://www.strava.com/api/v3/activities'
     urls = []
     for num in id_list:
@@ -292,8 +242,10 @@ def get_new_activities(headers, config, df, id_list):
         urls.append(activity_url + '/' + activityid)
     params = None
     json_obj_ls = []
-
+    # Update database
+    print("Fetching new activities")
     for url in urls:
+        # Update till a timeout occurs
         try:
             json_obj = return_json(url, headers, params)
         except TimeoutDaily:
@@ -307,75 +259,62 @@ def get_new_activities(headers, config, df, id_list):
         else:
             # if there is no error
             json_obj_ls.append(json_obj)
+    config['last_update'] = dt.datetime.today().strftime("%Y_%m_%d_%H%M")
+    config['first_run'] = False
     if json_obj_ls == []:
-        # do not update databse
-        # nothing happened
-        print("Empty list occured")
-        time = dt.datetime.today().strftime("%Y_%m_%d_%H%M")
-        config['last_update'] = time
-        config['first_run'] = False
+        # nothing happened, do not update the df file
+        print("No updates fetched from id_list")
         return config, df
-
     else:
         df_newactivities = pd.json_normalize(json_obj_ls)
-        print("New database created")
-
-    # update and clean up df file
+    # Combine with old df
     if config['first_run'] is True:
         df = df_newactivities
     else:
         df = pd.concat([df, df_newactivities], ignore_index=True)
+    # Sort and format
     df.sort_values('id', ascending=False, inplace=True)
     df = df.reset_index().drop(columns=['index', 'segment_efforts'])
-
-    # check for remaining updates
+    # Check for remaining updates
     new_id_list = df['id'].to_list()
     remainder_id_list = list(set(id_list) - set(new_id_list))
     if remainder_id_list != []:
         config['remaining_updates'] = True
     else:
         config['remaining_updates'] = False
-
-    # Update Config File (last update, first run)
-    time = dt.datetime.today().strftime("%Y_%m_%d_%H%M")
-    config['last_update'] = time
-    config['first_run'] = False
-
+    print("Database updated")
     return config, df
 
 
 def return_json(url, headers, params):
-    """
-    creates a request and returns json and config
+    """creates a request and returns json and config
 
     Parameters
-    ---------
-    url: url
+    ----------
+    url : str
         per requests library
-    headers: headers
+    headers : dict
         per requests library
-    params: params
-        per request library
-    config: dictionary
-        config file from setup
+    params : dict
+        per requests library
 
     Returns
-    ---------
-    json_obj: dictionary
-        json formatted object
-    config: dictionary
-        config['last_timeout_daily']
-        config['last_timeout_15min']
+    -------
+    dict
+        json_obj
 
+    Raises
+    ------
+    TimeoutDaily
+        Daily timeout
+    TimeoutFifteen
+        Fifteen minute timeout
     """
-
     response = requests.get(url, headers=headers, params=params)
-
     try:
         response.raise_for_status()
     except requests.exceptions.HTTPError as e:
         # Whoops it wasn't a 200
-        print("HTTPError")
         limit_15min = int(response.headers['X-RateLimit-Limit'].split(",")[0])
         limit_daily = int(response.headers['X-RateLimit-Limit'].split(",")[1])
         usage_15min = int(response.headers['X-RateLimit-Usage'].split(",")[0])
