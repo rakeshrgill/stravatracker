@@ -183,54 +183,49 @@ def graph_plots(pandas_df):
     everyday_series = graph_df.groupby([pd.Grouper(level='start_date_local', freq="D")])['excel_time'].sum()
     everyday_series = everyday_series.reindex(new_date_range, fill_value=0.00)
     everyday_series = everyday_series.groupby([pd.Grouper(level=0, freq="Y"), pd.Grouper(level=0, freq="D")]).sum()
-    plt.figure()
+    plt.figure("Figure 1")
     axs = everyday_series.groupby(level=0).cumsum().groupby([pd.Grouper(level=0, freq="Y")]).plot(legend=True, use_index=True)
     for ax in axs:
         ax.xaxis.set_major_locator(mdates.MonthLocator())
         ax.xaxis.set_major_formatter(fmt)
         ax.set_title("Cumulative duration plot (by year)")
         ax.set_ylabel("Hours")
-    plt.show()
 
     # Graph 2: Days of ex
     numdays_series = graph_df.reset_index().groupby([pd.Grouper(key="start_date_local", freq="D")])['start_date_local'].nunique()
     numdays_series = numdays_series.reindex(new_date_range, fill_value=0.00)
     numdays_series = numdays_series.groupby([pd.Grouper(level=0, freq="Y"), pd.Grouper(level=0, freq="D")]).sum()
-    plt.figure()
+    plt.figure("Figure 2")
     axs = numdays_series.groupby(level=0).cumsum().groupby([pd.Grouper(level=0, freq="Y")]).plot(legend=True, use_index=True)
     for ax in axs:
         ax.xaxis.set_major_locator(mdates.MonthLocator())
         ax.xaxis.set_major_formatter(fmt)
         ax.set_title("Cumulative days of exercise (by year)")
         ax.set_ylabel("Days")
-    plt.show()
 
     # Graph 3: Duration mean of the week
     everyday_series = graph_df.groupby([pd.Grouper(level='start_date_local', freq="D")])['excel_time'].sum()
     everyday_series = everyday_series.reindex(new_date_range, fill_value=0.00)
-    plt.figure()
+    plt.figure("Figure 3")
     ax = everyday_series.groupby([everyday_series.index.day_of_week]).mean().plot.bar(legend=False, use_index=True)
     ax.set_xticklabels(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
     ax.set_title("Average duration by day of the week")
     ax.set_ylabel("Hours")
-    plt.show()
 
     # Graph 4:  Duration mean of the week,BY YEAR
     ax = everyday_series.groupby([pd.Grouper(level=0, freq="Y"), everyday_series.index.day_of_week]).mean().unstack().plot.bar(legend=False, use_index=True)
     ax.set_xticklabels(year_array)
     ax.set_title("Average duration by day of the week, by year")
     ax.set_ylabel("Hours")
-    plt.show()
 
     # Graph 5:  Days of ex of the week
     numdays_series = graph_df.reset_index().groupby([pd.Grouper(key="start_date_local", freq="D")])['start_date_local'].nunique()
     numdays_series = numdays_series.reindex(new_date_range, fill_value=0.00)
-    plt.figure()
+    plt.figure("Figure 5")
     ax = numdays_series.groupby(everyday_series.index.day_of_week).sum().plot.bar(legend=False, use_index=True)
     ax.set_xticklabels(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'])
     ax.set_title("Days exercised by day of the week")
     ax.set_ylabel("Days exercised")
-    plt.show()
 
     # Graph 6:  Days of ex of the week, by year
     ax = numdays_series.groupby([pd.Grouper(level=0, freq="Y"), everyday_series.index.day_of_week]).sum().unstack().plot.bar(legend=False, use_index=True)
