@@ -26,7 +26,6 @@ load_files()
 read_json()
 write_json()
 """
-# TODO: Fix figure display in update.py
 # TODO: Build test for update.py
 # TODO: Build Test for stravatracker.py
 # TODO: Build integration test for stravatracker and update.py
